@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapvis</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage">
+        <div class="stage-tabs" role="tablist">
+          <button id="tabRoute" class="tab is-active" type="button">Route</button>
+          <button id="tabPreview" class="tab" type="button">Preview</button>
+        </div>
+
+        <div id="map" class="map-view"></div>
+
+        <div id="previewView" class="preview-view" hidden>
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="preview" width="1280" height="720" aria-label="Route animation preview"></canvas>
+          </div>
+          <div class="player">
+            <button id="playButton" type="button">Play</button>
+            <input id="scrub" type="range" min="0" max="1000" value="0" />
+            <span id="timeLabel">0.0s</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="controls" aria-label="Video controls">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div>
+            <strong>Mapvis</strong>
+            <span>Route animation video maker</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="searchInput">Add place</label>
+          <form id="searchForm" class="search-row">
+            <input id="searchInput" type="text" placeholder="City, street, address…" />
+            <button type="submit">Find</button>
+          </form>
+          <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <p class="hint">Click on the map to add points. Drag markers to move them, click a marker to remove it.</p>
+
+        <ol id="waypointList" class="waypoints"></ol>
+
+        <div class="button-row">
+          <button id="reverseButton" type="button" class="secondary">Reverse</button>
+          <button id="clearButton" type="button" class="secondary">Clear</button>
+        </div>
+
+        <label class="file-picker secondary">
+          <input id="gpxFile" type="file" accept=".gpx,application/gpx+xml" />
+          <span>Import GPX</span>
+        </label>
+
+        <div class="field">
+          <label for="routingSelect">Routing</label>
+          <select id="routingSelect">
+            <option value="car" selected>By road (car)</option>
+            <option value="bike">By road (bike)</option>
+            <option value="foot">Walking</option>
+            <option value="straight">Straight lines</option>
+          </select>
+        </div>
+
+        <div class="track-meta" id="routeMeta">No route yet</div>
+
+        <hr />
+
+        <div class="field">
+          <label for="durationInput">Video length, seconds</label>
+          <input id="durationInput" type="number" min="1" max="600" step="0.5" value="10" />
+        </div>
+        <div class="track-meta" id="speedMeta"></div>
+
+        <div class="field">
+          <label for="aspectSelect">Aspect ratio</label>
+          <select id="aspectSelect">
+            <option value="16:9" selected>16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="1:1">1:1</option>
+            <option value="4:5">4:5</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+            <option value="21:9">21:9</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="qualitySelect">Resolution</label>
+          <select id="qualitySelect">
+            <option value="720">720p</option>
+            <option value="1080">1080p</option>
+            <option value="1440">1440p</option>
+            <option value="2160" selected>4K</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="fpsSelect">Frame rate</label>
+          <select id="fpsSelect">
+            <option value="30" selected>30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Icon</label>
+          <div class="icon-picker" id="iconPicker">
+            <button type="button" data-icon="arrow" class="is-active" title="Arrow">
+              <svg viewBox="0 0 24 24"><path d="M12 2 20 21 12 16.5 4 21Z" /></svg>
+            </button>
+            <button type="button" data-icon="car" title="Car">
+              <svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="3.5" /></svg>
+            </button>
+            <button type="button" data-icon="moto" title="Motorcycle">
+              <svg viewBox="0 0 24 24"><rect x="10" y="2" width="4" height="20" rx="2" /><rect x="6" y="6" width="12" height="2" rx="1" /></svg>
+            </button>
+            <button type="button" data-icon="dot" title="Dot">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="iconColor">Icon color</label>
+          <input id="iconColor" type="color" value="#ff3b30" />
+        </div>
+
+        <div class="field">
+          <label for="iconSize">Icon size <span id="iconSizeValue">100%</span></label>
+          <input id="iconSize" type="range" min="40" max="250" value="100" />
+        </div>
+
+        <div class="field">
+          <label for="mapStyle">Map style</label>
+          <select id="mapStyle">
+            <option value="osm" selected>OpenStreetMap</option>
+            <option value="humanitarian">Humanitarian</option>
+            <option value="cyclosm">CyclOSM</option>
+            <option value="esriStreets">Esri streets</option>
+            <option value="esriTopo">Esri topo</option>
+            <option value="light">Light (no labels)</option>
+            <option value="dark">Dark (no labels)</option>
+            <option value="satellite">Satellite</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="mapDetail">Map text size</label>
+          <select id="mapDetail">
+            <option value="0">Small (most detail)</option>
+            <option value="-0.5" selected>Medium</option>
+            <option value="-1">Large</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="routeColor">Route color</label>
+          <input id="routeColor" type="color" value="#1a73e8" />
+        </div>
+
+        <div class="field">
+          <label for="lineWidth">Line width <span id="lineWidthValue">100%</span></label>
+          <input id="lineWidth" type="range" min="30" max="300" value="100" />
+        </div>
+
+        <div class="field">
+          <label for="cameraSelect">Camera</label>
+          <select id="cameraSelect">
+            <option value="follow" selected>Follow icon</option>
+            <option value="cinematic">Overview → follow → overview</option>
+            <option value="overview">Whole route (static)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="zoomInput">Follow zoom <span id="zoomValue">auto</span></label>
+          <input id="zoomInput" type="range" min="3" max="19" step="0.25" value="15" disabled />
+        </div>
+
+        <label class="check-field">
+          <input id="autoZoom" type="checkbox" checked />
+          <span>Auto zoom</span>
+        </label>
+
+        <label class="check-field">
+          <input id="rotateMap" type="checkbox" />
+          <span>Rotate map with direction</span>
+        </label>
+
+        <label class="check-field">
+          <input id="easeMotion" type="checkbox" checked />
+          <span>Smooth start and stop</span>
+        </label>
+
+        <label class="check-field">
+          <input id="showFullRoute" type="checkbox" checked />
+          <span>Show remaining route</span>
+        </label>
+
+        <label class="check-field">
+          <input id="showEnds" type="checkbox" checked />
+          <span>Start and finish markers</span>
+        </label>
+
+        <label class="check-field">
+          <input id="showDistance" type="checkbox" checked />
+          <span>Show distance counter</span>
+        </label>
+
+        <button id="exportButton" type="button" disabled>Export video</button>
+        <progress id="exportProgress" max="1" value="0" hidden></progress>
+        <a id="downloadLink" class="download-link" hidden>Download video</a>
+
+        <p class="status" id="status">Add at least two points.</p>
+
+        <p class="footer">
+          👨🏻‍💻 Developed by <a href="https://github.com/uavn" target="_blank">Artem</a>.
+          Map data © OpenStreetMap contributors.
+        </p>
+      </aside>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
