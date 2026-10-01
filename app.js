@@ -42,6 +42,7 @@ const easeMotion = $("#easeMotion");
 const showFullRoute = $("#showFullRoute");
 const showEnds = $("#showEnds");
 const showDistance = $("#showDistance");
+const fadeIcon = $("#fadeIcon");
 const exportButton = $("#exportButton");
 const exportProgress = $("#exportProgress");
 const downloadLink = $("#downloadLink");
@@ -503,7 +504,7 @@ function normalizeAngle(angle) {
 
 function getFrameState(time, width, height) {
   const duration = getDuration();
-  const u = Math.max(0, Math.min(1, time / duration));
+  const u = Math.max(0, Math.min(1, time / getMotionDuration()));
   const progress = easeMotion.checked ? easeInOut(u) : u;
   const distance = progress * route.length;
   const position = pointAt(distance);
@@ -970,6 +971,21 @@ function drawAttribution(ctx, width, height, style, scale) {
   ctx.restore();
 }
 
+// With fading enabled the icon arrives early and fades out at the finish during the last moments.
+function getFadeLength() {
+  return fadeIcon.checked ? Math.min(1, getDuration() * 0.12) : 0;
+}
+
+function getMotionDuration() {
+  return getDuration() - getFadeLength();
+}
+
+function getIconFade(time) {
+  const fadeLength = getFadeLength();
+  if (!fadeLength) return 0;
+  return smoothstep((time - getMotionDuration()) / fadeLength);
+}
+
 function renderFrame(ctx, width, height, time, pending) {
   const style = tileStyles[mapStyle.value];
   ctx.save();
@@ -1006,11 +1022,16 @@ function renderFrame(ctx, width, height, time, pending) {
 
   const local = toLocal(frame.position, frame);
   const size = 46 * frame.scale * (Number(iconSize.value) / 100);
-  ctx.save();
-  ctx.translate(local.x, local.y);
-  ctx.rotate(frame.iconHeading + Math.PI / 2);
-  drawIcon(ctx, selectedIcon, size, iconColor.value, frame.scale);
-  ctx.restore();
+  const fade = getIconFade(time);
+  if (fade < 1) {
+    ctx.save();
+    ctx.globalAlpha = 1 - fade;
+    ctx.translate(local.x, local.y);
+    ctx.rotate(frame.iconHeading + Math.PI / 2);
+    ctx.scale(1 - fade * 0.25, 1 - fade * 0.25);
+    drawIcon(ctx, selectedIcon, size, iconColor.value, frame.scale);
+    ctx.restore();
+  }
 
   ctx.restore();
   if (showDistance.checked) drawDistance(ctx, height, frame.position.km, frame.scale);
@@ -1114,10 +1135,10 @@ function updateMeta() {
     return;
   }
 
-  const duration = getDuration();
-  const speed = route.km / (duration / 3600);
+  const motion = getMotionDuration();
+  const speed = route.km / (motion / 3600);
   routeMeta.textContent = `Route length: ${route.km < 10 ? route.km.toFixed(2) : route.km.toFixed(1)} km`;
-  speedMeta.textContent = `Speed in video: ${Math.round(speed).toLocaleString()} km/h (${(route.km / duration).toFixed(route.km / duration < 1 ? 3 : 1)} km per second)`;
+  speedMeta.textContent = `Speed in video: ${Math.round(speed).toLocaleString()} km/h (${(route.km / motion).toFixed(route.km / motion < 1 ? 3 : 1)} km per second)`;
 
   const { width, height } = getOutputSize(REFERENCE_SIDE);
   const followZoom = getFollowZoom(width, height);
@@ -1136,7 +1157,7 @@ aspectSelect.addEventListener("change", () => {
   fitPreview();
 });
 qualitySelect.addEventListener("change", fitPreview);
-[iconColor, routeColor, lineWidth, iconSize, cameraSelect, rotateMap, easeMotion, showFullRoute, showEnds, showDistance, zoomInput].forEach(
+[iconColor, routeColor, lineWidth, iconSize, cameraSelect, rotateMap, easeMotion, showFullRoute, showEnds, showDistance, fadeIcon, zoomInput].forEach(
   (input) => input.addEventListener("input", onSettingChanged),
 );
 
